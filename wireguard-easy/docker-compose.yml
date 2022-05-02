@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+  wireguard-easy:
+    image: weejewel/wg-easy
+    container_name: wireguard-easy
+    restart: unless-stopped
+    # networks:
+    #   - web
+    ports:
+      - 51820:51820/udp
+      - 8003:8003/tcp
+    environment:
+      - WG_HOST=vpn.example.com
+      - PORT=8003
+      - PASSWORD=123
+    volumes:
+      - ./data:/etc/wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wireguard-easy.entrypoints=http"
+      - "traefik.http.routers.wireguard-easy.rule=Host(`wg-dash.example.com`)"
+      - "traefik.http.middlewares.wireguard-easy-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.wireguard-easy.middlewares=wireguard-easy-https-redirect"
+      - "traefik.http.routers.wireguard-easy-secure.entrypoints=https"
+      - "traefik.http.routers.wireguard-easy-secure.rule=Host(`wg-dash.example.com`)"
+      - "traefik.http.routers.wireguard-easy-secure.tls=true"
+      - "traefik.http.routers.wireguard-easy-secure.service=wireguard-easy"
+      - "traefik.http.services.wireguard-easy.loadbalancer.server.port=8003"
+      - "traefik.docker.network=web"
+
+networks:
+  web:
+    external: true
