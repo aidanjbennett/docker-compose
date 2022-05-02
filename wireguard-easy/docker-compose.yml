@@ -5,8 +5,8 @@ services:
     image: weejewel/wg-easy
     container_name: wireguard-easy
     restart: unless-stopped
-    # networks:
-    #   - web
+    networks:
+      - web
     ports:
       - 51820:51820/udp
       - 8003:8003/tcp
