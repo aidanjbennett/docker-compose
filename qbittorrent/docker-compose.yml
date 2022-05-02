@@ -1,0 +1,70 @@
+version: '3.6'
+
+services:
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    restart: always
+    environment:
+      - PUID=82
+      - PGID=82
+      - PORT=6969
+      - TZ=Europe/Berlin
+      - UMASK=000
+      - WEBUI_PORT=8002
+    volumes:
+      - ./qbittorrent/config:/config/
+      - ./torrents:/downloads/
+    network_mode: 'service:gluetun'
+    labels:
+      - autoheal=true
+      - com.centurylinklabs.watchtower.enable="true"
+    healthcheck:
+      # Check if the network connection is down and restart with autoheal
+      test: [ 'CMD', 'curl', '-f', 'https://google.com/' ]
+      timeout: 5s
+      retries: 2
+      start_period: 5s
+    depends_on:
+      - gluetun
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    container_name: gluetun
+    networks:
+      - web
+    volumes:
+      - ./gluton:/gluetun/
+      - ./gluton/forward-port:/tmp/gluetun/forwarded_port
+      - ./gluton/ip:/tmp/gluetun/ip
+    environment:
+      # More variables are available, see the readme table
+      #- OPENVPN_CUSTOM_CONFIG=/gluetun/proton.conf
+      - OPENVPN_USER=
+      - OPENVPN_PASSWORD=
+      - VPNSP=pia
+      - PORT_FORWARDING=on
+      - PIA_ENCRYPTION=strong
+      - REGION=DE Frankfurt
+      - PORT_FORWARDING_STATUS_FILE=/tmp/gluetun/forwarded_port
+      - PUBLICIP_FILE=/tmp/gluetun/ip
+      # Timezone for accurate logs times
+      - TZ=Europe/Berlin
+    labels:
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.entrypoints=http"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qb.example.com`)"
+      - "traefik.http.middlewares.qbittorrent-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.qbittorrent.middlewares=qbittorrent-https-redirect"
+      - "traefik.http.routers.qbittorrent-secure.entrypoints=https"
+      - "traefik.http.routers.qbittorrent-secure.rule=Host(`qb.example.com`)"
+      - "traefik.http.routers.qbittorrent-secure.tls=true"
+      - "traefik.http.routers.qbittorrent-secure.service=qbittorrent"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8002"
+      - "traefik.docker.network=web"
+
+networks:
+  web:
+    external: true
